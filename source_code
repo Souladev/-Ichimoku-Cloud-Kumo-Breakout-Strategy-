@@ -1,0 +1,72 @@
+//@version=5
+strategy("Ichimoku Cloud Kumo Breakout Strategy", overlay=true, 
+     default_qty_type=strategy.cash, default_qty_value=10000, initial_capital=10000)
+
+// Input parameters
+rsiLength = input(14, title="RSI Length")
+rsiFilter = input(50, title="RSI Filter Level")
+atrLength = input(14, title="ATR Length for Stop Loss")
+trailATRMult = input(2.0, title="Trailing Stop ATR Multiple")
+useChikouFilter = input(true, title="Use Chikou Span Filter")
+
+// Calculate Ichimoku components
+[tenkan, kijun, senkouA, senkouB, chikou] = ta.ichimoku(9, 26, 52)
+
+// Calculate RSI for momentum filter
+rsiValue = ta.rsi(close, rsiLength)
+
+// Calculate ATR for stop loss
+atrValue = ta.atr(atrLength)
+
+// Define cloud boundaries
+upperCloud = math.max(senkouA[26], senkouB[26])
+lowerCloud = math.min(senkouA[26], senkouB[26])
+
+// Define conditions
+priceAboveCloud = close > upperCloud
+priceBelowCloud = close < lowerCloud
+tenkanAboveKijun = tenkan > kijun
+tenkanBelowKijun = tenkan < kijun
+rsiAboveFilter = rsiValue > rsiFilter
+rsiBelowFilter = rsiValue < (100 - rsiFilter)
+
+// Chikou span conditions
+chikouAbovePrice = useChikouFilter ? chikou[26] > close[26] : true
+chikouBelowPrice = useChikouFilter ? chikou[26] < close[26] : true
+
+// Entry conditions
+longCondition = priceAboveCloud and tenkanAboveKijun and rsiAboveFilter and chikouAbovePrice
+shortCondition = priceBelowCloud and tenkanBelowKijun and rsiBelowFilter and chikouBelowPrice
+
+// Exit conditions
+exitLong = close < lowerCloud
+exitShort = close > upperCloud
+
+// Strategy entries
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+    
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+// Strategy exits
+if (exitLong)
+    strategy.close("Long")
+    
+if (exitShort)
+    strategy.close("Short")
+
+// Plot Ichimoku components
+plot(tenkan, color=color.new(color.blue, 0), title="Tenkan-sen")
+plot(kijun, color=color.new(color.red, 0), title="Kijun-sen")
+plot(senkouA[26], color=color.new(color.green, 0), title="Senkou Span A")
+plot(senkouB[26], color=color.new(color.red, 0), title="Senkou Span B")
+
+// Plot cloud with fill
+upperCloudPlot = plot(upperCloud, color=color.new(color.green, 0), title="Upper Cloud", display=display.none)
+lowerCloudPlot = plot(lowerCloud, color=color.new(color.red, 0), title="Lower Cloud", display=display.none)
+fill(upperCloudPlot, lowerCloudPlot, color=close > upperCloud ? color.new(color.green, 90) : 
+     close < lowerCloud ? color.new(color.red, 90) : color.new(color.gray, 90), title="Cloud Fill")
+
+// Plot Chikou Span
+plot(chikou, color=color.new(color.purple, 0), title="Chikou Span", offset=-26)
